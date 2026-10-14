@@ -1,0 +1,151 @@
+Screen {
+    background: $background;
+    color: $foreground;
+    layout: vertical;
+}
+#topbar {
+    height: 2;
+    padding: 0 1;
+    align-vertical: middle;
+    background: $surface;
+}
+#brand { width: 20; text-style: bold; height: 1; }
+#connection { width: 1fr; height: 1; color: $monitor-muted; }
+#mode-badge {
+    width: auto;
+    min-width: 7;
+    height: 1;
+    content-align: center middle;
+    text-style: bold;
+    color: $monitor-badge-ink;
+    background: $monitor-off;
+}
+#mode-badge.badge-dry-run { background: $monitor-dry; }
+#mode-badge.badge-on { background: $monitor-on; }
+#summary { height: 1; margin: 0 1; }
+#agent-controls { height: 3; margin: 0 1; align-vertical: middle; }
+#agent-filter { width: 1fr; height: 3; margin-right: 1; }
+#state-filter { width: 17; }
+#visible-count { width: 11; content-align: right middle; color: $monitor-muted; }
+Input, Select { border: tall $monitor-line; background: $surface; }
+Input:focus { border: tall $primary; }
+SelectCurrent { background: $surface; }
+Select:focus > SelectCurrent { border: tall $primary; }
+SelectOverlay { background: $surface; border: round $monitor-line; }
+.panel {
+    margin: 0 1;
+    border: round $monitor-line;
+    border-title-color: $monitor-muted;
+    border-title-background: $background;
+    background: $surface;
+}
+#agents-panel { height: 1fr; min-height: 5; }
+#agents { height: 1fr; background: $surface; }
+DataTable > .datatable--header {
+    background: $surface;
+    color: $monitor-muted;
+    text-style: none;
+}
+DataTable > .datatable--cursor { background: $monitor-selection; }
+DataTable:focus > .datatable--cursor { background: $monitor-selection; }
+DataTable > .datatable--hover { background: $boost; }
+#empty-agents { height: 1; text-align: center; color: $monitor-muted; }
+#details {
+    height: 6;
+    padding: 0 1;
+    color: $monitor-muted;
+}
+#monitor-panel { height: 9; min-height: 6; }
+#log-controls { height: 1; padding: 0 1; }
+#log-filter { width: 18; height: 1; border: none; }
+#log-filter > SelectCurrent { padding: 0; border: none; height: 1; }
+#follow-button { width: 16; }
+#expand-button { width: 10; }
+#log-controls Button {
+    margin-left: 1;
+    height: 1;
+    min-width: 8;
+    border: none;
+    background: $surface;
+    color: $monitor-muted;
+}
+#log-controls Button:hover, #log-controls Button:focus {
+    color: $foreground;
+    background: $monitor-selection;
+    text-style: none;
+}
+#monitor-log { height: 1fr; padding: 0 1; background: $surface; color: $monitor-muted; }
+#notice { height: 1; margin: 0 1; color: $monitor-muted; }
+Footer { background: $surface; color: $monitor-muted; }
+FooterKey { background: $surface; color: $monitor-muted; }
+FooterKey > .footer-key--key { background: $monitor-selection; color: $foreground; }
+FooterKey > .footer-key--description { color: $monitor-muted; }
+Screen.compact #brand { width: 18; }
+Screen.short #details { display: none; }
+Screen.short #monitor-panel { height: 7; }
+Screen.narrow #brand { width: 16; }
+Screen.narrow #connection { text-overflow: ellipsis; }
+Screen.narrow #summary { text-overflow: ellipsis; }
+Screen.narrow #state-filter { width: 13; }
+Screen.narrow #visible-count { width: 8; }
+Screen.narrow #details { display: none; }
+Screen.narrow #notice { display: none; }
+Screen.narrow #monitor-panel { height: 7; }
+Screen.log-expanded #agents-panel, Screen.log-expanded #details,
+Screen.log-expanded #agent-controls { display: none; }
+Screen.log-expanded #monitor-panel { height: 1fr; }
+Screen.ascii .panel, Screen.ascii .dialog { border: ascii $monitor-line; }
+Screen.mono #mode-badge.badge-dry-run, Screen.mono #mode-badge.badge-on {
+    background: $monitor-off;
+}
+Screen.mono #agents > .datatable--cursor { background: $boost; text-style: reverse; }
+ModalScreen {
+    align: center middle;
+    background: $background 75%;
+}
+.dialog {
+    width: 66;
+    max-width: 94%;
+    height: auto;
+    max-height: 94%;
+    border: round $primary;
+    padding: 1 2;
+    background: $surface;
+}
+.dialog-title {
+    width: 1fr;
+    height: 1;
+    text-style: bold;
+    margin-bottom: 1;
+}
+.dialog Static { color: $monitor-muted; }
+#mode-dialog Button { width: 1fr; margin-top: 1; }
+#mode-dialog Static { height: auto; }
+#mode-scope { height: 3; margin-top: 1; }
+#mode-scope Button { width: 1fr; height: 3; margin: 0 1 0 0; color: $monitor-muted; border: tall $monitor-line; }
+#mode-scope Button.scope-active { color: $foreground; background: $primary 25%; border: tall $primary; text-style: bold; }
+#scope-hint { color: $monitor-muted; margin-top: 1; }
+.field-label { height: 1; margin-top: 1; color: $monitor-muted; }
+.dialog Input { height: 3; width: 1fr; }
+.dialog-actions { height: 3; margin-top: 1; align-horizontal: right; }
+.dialog-actions Button { margin-left: 1; min-width: 10; }
+Button { background: $surface; border: tall $monitor-line; color: $foreground; }
+Button:focus { text-style: bold; border: tall $primary; }
+Button.-primary { background: $primary 18%; color: $foreground; }
+Button.-warning { background: $warning 18%; color: $foreground; }
+Button:disabled { color: $monitor-muted; background: $surface; opacity: 55%; }
+#settings-dialog { height: 31; }
+#settings-fields { height: 1fr; }
+#settings-fields Select { width: 1fr; }
+.settings-note { height: auto; margin-top: 1; }
+#settings-error { height: auto; max-height: 2; color: $error; }
+#help-dialog { height: 24; }
+#help-copy { height: 1fr; }
+#help-copy Static { height: auto; }
+#help-close { width: 1fr; margin-top: 1; }
+Screen.tiny #topbar { height: 1; }
+Screen.tiny #summary, Screen.tiny #notice { display: none; }
+Screen.tiny #agents-panel { min-height: 4; }
+Screen.tiny #monitor-panel { height: 5; min-height: 4; }
+Screen.log-expanded #monitor-panel, Screen.tiny.log-expanded #monitor-panel,
+Screen.short.log-expanded #monitor-panel, Screen.narrow.log-expanded #monitor-panel { height: 1fr; }
