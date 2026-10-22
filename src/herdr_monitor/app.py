@@ -203,7 +203,7 @@ class HelpScreen(ModalScreen[None]):
             yield Label("Herdr monitor · shortcuts", classes="dialog-title")
             with VerticalScroll(id="help-copy"):
                 yield Static(
-                    "↑ / ↓     Select agent          /       Search name, pane ID or type\n"
+                    "↑ / ↓     Select agent          /       Search workspace, session, pane or type\n"
                     "a         Mode (ALL / selected) s       Settings\n"
                     "e         Exclude / restore     m       Expand / restore log\n"
                     "p         Pause / follow log    Space   Emergency OFF\n"
@@ -284,7 +284,7 @@ class MonitorApp(App[None]):
             yield Static("OFF", id="mode-badge", markup=False)
         yield Static("", id="summary", markup=False)
         with Horizontal(id="agent-controls"):
-            yield Input(placeholder="Filter name / pane / type", id="agent-filter", compact=True)
+            yield Input(placeholder="Filter workspace / session / pane / type", id="agent-filter", compact=True)
             yield Select([("All states", "all")] + [(state.title(), state) for state in STATUS_MARKS], value="all", allow_blank=False, id="state-filter", compact=True)
             yield Static("", id="visible-count", markup=False)
         with Vertical(id="agents-panel", classes="panel"):
@@ -351,10 +351,11 @@ class MonitorApp(App[None]):
         screen.set_class(height < 20, "tiny")
         screen.set_class(self.config.ascii, "ascii")
         screen.set_class(self.config.no_color, "mono")
-        columns = ("mark", "name", "pane", "kind", "status", "work", "mode") if width >= 100 else (
-            ("mark", "name", "pane", "status", "work", "mode") if width >= 70 else
-            ("mark", "name", "pane", "status", "mode") if width >= 55 else
-            ("mark", "name", "pane", "status", "mode")
+        # WORKSPACE and SESSION identify the agent; narrower layouts drop TYPE, then LAST WORK, then WORKSPACE.
+        columns = ("mark", "workspace", "session", "pane", "kind", "status", "work", "mode") if width >= 120 else (
+            ("mark", "workspace", "session", "pane", "status", "work", "mode") if width >= 100 else
+            ("mark", "workspace", "session", "pane", "status", "mode") if width >= 70 else
+            ("mark", "session", "pane", "status", "mode")
         )
         if columns == self._columns:
             return
@@ -364,8 +365,12 @@ class MonitorApp(App[None]):
         self._row_ids = []
         self._cells = {}
         self._columns = columns
-        widths = {"mark": 1, "name": max(7, min(30, width - (86 if width >= 100 else 68 if width >= 70 else 50 if width >= 55 else 38))), "pane": 12 if width >= 70 else 8, "kind": 7, "status": 9, "work": 9, "mode": 12}
-        labels = {"mark": "", "name": "NAME", "pane": "PANE ID", "kind": "TYPE", "status": "STATUS", "work": "LAST WORK*", "mode": "MODE"}
+        # Fixed widths + 2 padding per column + borders/margins (22 / 13 / 10 as in the original layout).
+        reserved = 100 if width >= 120 else 91 if width >= 100 else 68 if width >= 70 else 50 if width >= 55 else 38
+        widths = {"mark": 1, "workspace": 12 if width >= 100 else 9, "session": max(7, min(40, width - reserved)),
+                  "pane": 12 if width >= 70 else 8, "kind": 7, "status": 9, "work": 9, "mode": 12}
+        labels = {"mark": "", "workspace": "WORKSPACE", "session": "SESSION", "pane": "PANE ID", "kind": "TYPE",
+                  "status": "STATUS", "work": "LAST WORK*", "mode": "MODE"}
         for column in columns:
             table.add_column(labels[column], key=column, width=widths[column])
 
@@ -395,6 +400,12 @@ class MonitorApp(App[None]):
             text.append(" *", style=self._color("idle") or "")
         return text
 
+    def _session_cell(self, record: Any) -> Text:
+        """Agent conversation name (pi /rename); unnamed sessions show a dim dash."""
+        if record.session_name:
+            return self._plain(record.session_name)
+        return Text("-" if self.config.ascii else "—", style=self._color("idle") or "")
+
     def _row(self, record: Any) -> tuple[Text, ...]:
         state = record.status if record.status in STATUS_MARKS else "unknown"
         status = self._marker(state)
@@ -403,7 +414,8 @@ class MonitorApp(App[None]):
         if self.config.ascii and work == "—":
             work = "-"
         cells = {"mark": Text((">" if self.config.ascii else "▸") if record.pane_id == self.selected_id else "", style=self._color("working") or ""),
-                 "name": self._plain(record.name or f"{record.kind} {record.pane_id}"),
+                 "workspace": self._plain(record.workspace or record.workspace_id or "—"),
+                 "session": self._session_cell(record),
                  "pane": self._plain(record.pane_id), "kind": self._plain(record.kind),
                  "status": status, "work": Text(work), "mode": self._mode_cell(record)}
         return tuple(cells[column] for column in self._columns)
@@ -435,7 +447,7 @@ class MonitorApp(App[None]):
         self.query_one("#summary", Static).update(summary)
         query = self.query_one("#agent-filter", Input).value.casefold().strip()
         state_filter = self.query_one("#state-filter", Select).value
-        visible = sorted((record for record in records if (state_filter == "all" or record.status == state_filter) and (not query or query in " ".join(literal(value) for value in (record.name, record.pane_id, record.kind)).casefold())), key=lambda record: ({"blocked": 0, "working": 1}.get(record.status, 2), record.pane_id))
+        visible = sorted((record for record in records if (state_filter == "all" or record.status == state_filter) and (not query or query in " ".join(literal(value) for value in (record.name, record.session_name, record.workspace, record.workspace_id, record.pane_id, record.kind)).casefold())), key=lambda record: ({"blocked": 0, "working": 1}.get(record.status, 2), record.pane_id))
         ids = [record.pane_id for record in visible]
         previous_index = self._row_ids.index(self.selected_id) if self.selected_id in self._row_ids else 0
         if self.selected_id not in ids:
@@ -493,7 +505,9 @@ class MonitorApp(App[None]):
         widget.border_title = Text("Details · " + literal(record.pane_id))
         native = record.native_session
         identity = "unavailable" if not native else " · ".join(f"{literal(key)}={literal(value)}" for key, value in native.items())
-        text = Text("Session: " + identity + "\n")
+        workspace = literal(record.workspace or "—") + (f" ({literal(record.workspace_id)})" if record.workspace_id else "")
+        text = Text("Workspace: " + workspace + "    Name: " + literal(record.session_name or "—") + "\n")
+        text.append("Session: " + identity + "\n")
         text.append("CWD: " + literal(record.cwd or "unavailable") + "    Mode: ")
         text.append_text(self._mode_cell(record))
         text.append(" (own setting)\n" if record.pane_id in self.controller.overrides else " (from ALL)\n")
@@ -584,7 +598,7 @@ class MonitorApp(App[None]):
         if record is None or record.pane_id == self.controller.self_id or record.excluded:
             self.push_screen(ModeScreen(), self._mode_chosen)
         else:
-            self.push_screen(ModeScreen(record.pane_id, f"{record.pane_id} · {record.name}"), self._mode_chosen)
+            self.push_screen(ModeScreen(record.pane_id, f"{record.pane_id} · {record.session_name or record.name}"), self._mode_chosen)
 
     def action_settings(self) -> None:
         self.push_screen(SettingsScreen(self.config, self.controller.mode, self.log_filter), self._settings_chosen)

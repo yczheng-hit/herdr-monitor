@@ -13,6 +13,29 @@ from .events import EventJournal, WriterLock, clean
 
 
 STATES = ("working", "blocked", "idle", "done", "unknown")
+PI_TITLE_PREFIXES = ("π - ", "pi - ")
+
+
+def session_name(kind: str, title: str, cwd: str = "") -> str:
+    """Display-only conversation name from the agent's terminal title.
+
+    pi titles are `π - <session name> - <cwd basename>` or `π - <cwd basename>` when unnamed,
+    and are refreshed by pi whenever the name changes (/name, /rename, resume). Other agents
+    (Claude, Codex) put their own conversation title in the terminal title, which herdr strips
+    of spinner glyphs. Never used to route input.
+    """
+    title = clean(title, 200).strip()
+    if kind != "pi":
+        return title
+    prefix = next((p for p in PI_TITLE_PREFIXES if title.startswith(p)), None)
+    if prefix is None:
+        return title  # an extension replaced pi's title; show it as-is
+    rest = title[len(prefix):]
+    base = cwd.rstrip("/").rsplit("/", 1)[-1]
+    if rest == base:
+        return ""
+    head, sep, _ = rest.rpartition(" - ")
+    return head.strip() if sep else ""
 
 
 @dataclass
@@ -30,6 +53,9 @@ class AgentRecord:
     last_transition: float = 0.0
     reason: str = "not inspected"
     excluded: bool = False
+    workspace_id: str = ""
+    workspace: str = ""  # herdr workspace label; empty when unavailable
+    session_name: str = ""  # agent's own conversation name (pi: /rename, /name); display only
 
     @property
     def identity(self) -> tuple:
@@ -68,6 +94,7 @@ class Controller:
         self._cooldown: dict[str, float] = {}
         self._last_decision: dict[str, str] = {}
         self.on_update: Callable[[], None] | None = None
+        self.workspace_labels: dict[str, str] = {}
         self._event("START", summary="foreground observation started; approval OFF")
 
     def _notify(self) -> None:
@@ -207,12 +234,23 @@ class Controller:
         self._cooldown.pop(pid, None)
         self._last_decision.pop(pid, None)
 
+    async def _refresh_workspaces(self) -> None:
+        """Display-only workspace labels; failure keeps the last labels and never affects health."""
+        list_workspaces = getattr(self.backend, "workspaces", None)
+        if list_workspaces is None:
+            return
+        try:
+            self.workspace_labels = await list_workspaces()
+        except (BackendError, OSError, ValueError, KeyError, TypeError):
+            pass
+
     async def poll_once(self) -> None:
         if self._closed or self._poll_lock.locked():
             return
         async with self._poll_lock:
             try:
                 inventory = await self.backend.inventory()
+                await self._refresh_workspaces()
                 own = await self.backend.resolve_self()
                 panes = {p["pane_id"]: p for p in inventory.panes}
                 if own and own.get("terminal_id"):
@@ -231,11 +269,16 @@ class Controller:
                     merged = {**(pane or {}), **item}
                     kind = merged.get("agent", "unknown")
                     native = merged.get("agent_session")
+                    cwd = clean(merged.get("foreground_cwd") or merged.get("cwd") or "", 1000)
+                    title = merged.get("terminal_title_stripped") or merged.get("terminal_title") or merged.get("title") or ""
                     record = AgentRecord(pid, clean(merged.get("name") or merged.get("label")
                         or merged.get("terminal_title_stripped") or merged.get("title") or f"{kind} {pid}"),
                         kind, merged.get("agent_status", "unknown"), merged["terminal_id"],
-                        native, clean(merged.get("foreground_cwd") or merged.get("cwd") or "", 1000),
-                        merged["revision"], last_transition=now, excluded=pid in self.config.exclude)
+                        native, cwd,
+                        merged["revision"], last_transition=now, excluded=pid in self.config.exclude,
+                        workspace_id=clean(merged.get("workspace_id") or "", 100),
+                        workspace=clean(self.workspace_labels.get(merged.get("workspace_id"), ""), 200),
+                        session_name=session_name(kind, title, cwd))
                     old = self.agents.get(pid)
                     if old and old.identity != record.identity:
                         self._event("LEFT", pid, "agent identity replaced")

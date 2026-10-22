@@ -26,8 +26,8 @@ Run inside the same herdr session you want to monitor. The inherited `HERDR_SOCK
 
 - **Header:** connected/stale status, effective approval mode, refresh interval.
 - **Summary:** all detected agents and counts by status; not a count of ordinary shell panes.
-- **Agents:** name, pane ID, kind, status, last observed working time and effective **MODE** (OFF / DRY-RUN / ON). `*` marks a per-agent override; exclusions and the monitor itself cannot send input.
-- **Details:** full reported native conversation identity, directory, observed times and blocker reason.
+- **Agents:** **WORKSPACE** (herdr workspace label), **SESSION** (the agent's conversation name), pane ID, kind, status, last observed working time and effective **MODE** (OFF / DRY-RUN / ON). `*` marks a per-agent override; exclusions and the monitor itself cannot send input.
+- **Details:** workspace label and ID, session name, full reported native conversation identity, directory, observed times and blocker reason.
 - **Monitor:** timestamped state/approval/configuration/error events, also saved as private rotating JSONL.
 
 Colors supplement symbols and labels: `● working`, `▲ blocked`, `✓ done`, `○ idle`, `? unknown`. Select `--theme light`, `--ascii`, or `--no-color` as needed. `NO_COLOR` is respected.
@@ -38,7 +38,9 @@ Herdr does not report historical work timestamps. `Last work` is the last time *
 
 - `done` means completion not yet seen, **not process exit**. Reading the monitor does not acknowledge completions.
 - `blocked` may mean a question rather than a permission request.
-- Agent names fall back to labels/titles; native session IDs may be unavailable.
+- **SESSION** comes from the agent's terminal title. For pi it is the name set by `/rename` or `/name` (pi titles are `π - <name> - <dir>`); an unnamed pi session shows `—`. It updates on the next poll after a rename. Claude and Codex show their own conversation title. Narrower windows drop TYPE, then LAST WORK, then WORKSPACE.
+- **WORKSPACE** comes from `herdr workspace list`. If that call fails, the last known labels (or the `w1` ID) are kept; it never affects connection health or approval.
+- Native session IDs may be unavailable. The filter matches workspace, session, pane ID and type.
 - Pane IDs route commands. Native conversation IDs and titles are never used as command targets.
 - Connection failure retains the last good inventory with a stale indicator, rather than showing zero agents.
 

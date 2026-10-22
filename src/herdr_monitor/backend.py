@@ -295,6 +295,14 @@ class HerdrBackend:
         return Inventory(_rows(agents, "agents", "agent_list", agent=True),
                          _rows(panes, "panes", "pane_list"))
 
+    async def workspaces(self) -> dict[str, str]:
+        """workspace_id -> label, for display only."""
+        rows = _result(await self._run("workspace", "list"), "workspace_list").get("workspaces")
+        if not isinstance(rows, list):
+            raise BackendError("missing workspace list")
+        return {item["workspace_id"]: item["label"] for item in rows
+                if isinstance(item, dict) and _string(item.get("workspace_id")) and _string(item.get("label"))}
+
     async def resolve_self(self) -> dict | None:
         """Return caller pane metadata, tracked by terminal ID across pane moves."""
         if not self._caller_pane:
